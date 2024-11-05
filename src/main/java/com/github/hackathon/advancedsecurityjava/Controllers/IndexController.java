@@ -2,9 +2,9 @@ package com.github.hackathon.advancedsecurityjava.Controllers;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,31 +28,37 @@ public class IndexController {
       @RequestParam(name = "read", required = false) Boolean bookread) {
     List<Book> books = new ArrayList<Book>();
 
-    Statement statement = null;
+    PreparedStatement statement = null;
 
     try {
       // Init connection to DB
       connection = DriverManager.getConnection(Application.connectionString);
 
-      statement = connection.createStatement();
-      String query = null;
+      String query = "SELECT * FROM Books WHERE 1=1";
+      List<Object> parameters = new ArrayList<>();
 
       if (bookname != null) {
-        // Filter by book name
-        query = "SELECT * FROM Books WHERE name LIKE '%" + bookname + "%'";
-      } else if (bookauthor != null) {
-        // Filter by book author
-        query = "SELECT * FROM Books WHERE author LIKE '%" + bookauthor + "%'";
-      } else if (bookread != null) {
-        // Filter by if the book has been read or not
-        Integer read = bookread ? 1 : 0;
-        query = "SELECT * FROM Books WHERE read = '" + read.toString() + "'";
-      } else {
-        // All books
-        query = "SELECT * FROM Books";
+        query += " AND name LIKE ?";
+        parameters.add("%" + bookname + "%");
       }
 
-      ResultSet results = statement.executeQuery(query);
+      if (bookauthor != null) {
+        query += " AND author LIKE ?";
+        parameters.add("%" + bookauthor + "%");
+      }
+
+      if (bookread != null) {
+        query += " AND read = ?";
+        parameters.add(bookread ? 1 : 0);
+      }
+
+      statement = connection.prepareStatement(query);
+
+      for (int i = 0; i < parameters.size(); i++) {
+        statement.setObject(i + 1, parameters.get(i));
+      }
+
+      ResultSet results = statement.executeQuery();
 
       while (results.next()) {
         Book book = new Book(results.getString("name"), results.getString("author"), (results.getInt("read") == 1));
